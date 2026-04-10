@@ -144,31 +144,22 @@ def get_kite_login_url() -> str:
 
 
 async def generate_session(request_token: str) -> dict:
-    """Exchange request_token for access_token."""
-    import base64
+    """Exchange request_token for access_token using kiteconnect SDK."""
+    from kiteconnect import KiteConnect
 
-    session_url = "https://api.kite.trade/session/token"
-    auth_str = f"{Config.KITE_API_KEY}:{Config.KITE_API_SECRET}"
-    b64_auth = base64.b64encode(auth_str.encode()).decode()
+    kite = KiteConnect(api_key=Config.KITE_API_KEY)
 
-    headers = {
-        "Authorization": f"Basic {b64_auth}",
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
+    # Run in thread pool since kiteconnect is synchronous
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(
+        None,
+        lambda: kite.generate_session(request_token, api_secret=Config.KITE_API_SECRET)
+    )
 
-    data = {"request_token": request_token}
+    if data.get("status") != "success":
+        raise Exception(f"Session generation failed: {data.get('message')}")
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(session_url, headers=headers, data=data)
-
-        if response.status_code != 200:
-            raise Exception(f"Session API failed: {response.status_code}")
-
-        result = response.json()
-        if result.get("status") != "success":
-            raise Exception(f"Session generation failed: {result.get('message')}")
-
-        return result["data"]
+    return data["data"]
 
 
 async def get_request_token() -> str:
