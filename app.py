@@ -156,10 +156,11 @@ async def generate_session(request_token: str) -> dict:
         lambda: kite.generate_session(request_token, api_secret=Config.KITE_API_SECRET)
     )
 
-    if data.get("status") != "success":
-        raise Exception(f"Session generation failed: {data.get('message')}")
+    # kiteconnect.generate_session returns dict with access_token directly
+    if "access_token" not in data:
+        raise Exception(f"Session generation failed: {data.get('message', 'Unknown error')}")
 
-    return data["data"]
+    return data
 
 
 async def get_request_token() -> str:
